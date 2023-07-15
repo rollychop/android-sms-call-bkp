@@ -53,10 +53,19 @@ class SmsLogViewModel : ViewModel() {
     fun saveAllSms(context: Context) {
 
         if (isRunning) {
-            _state.value = SMSLogScreenState(loading = true, error = "Already Process Running", logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+            _state.value = SMSLogScreenState(
+                loading = true,
+                error = "Already Process Running",
+                logBkpS = state.value.logBkpS,
+                smsBkpS = state.value.smsBkpS
+            )
         }
         isRunning = true
-        _state.value = SMSLogScreenState(loading = true, logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+        _state.value = SMSLogScreenState(
+            loading = true,
+            logBkpS = state.value.logBkpS,
+            smsBkpS = state.value.smsBkpS
+        )
         val obbPath = (context as ContextWrapper).obbDir.absolutePath
 
 
@@ -99,13 +108,21 @@ class SmsLogViewModel : ViewModel() {
                             }
 
                         } else {
-                            _state.value = SMSLogScreenState(error = "No message to show!", logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+                            _state.value = SMSLogScreenState(
+                                error = "No message to show!",
+                                logBkpS = state.value.logBkpS,
+                                smsBkpS = state.value.smsBkpS
+                            )
                         }
                     }
                 }
 
                 isRunning = false
-                _state.value = SMSLogScreenState(message = "Saved at $obbPath", logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+                _state.value = SMSLogScreenState(
+                    message = "Saved at $obbPath",
+                    logBkpS = state.value.logBkpS,
+                    smsBkpS = state.value.smsBkpS
+                )
             }
         }
     }
@@ -113,10 +130,19 @@ class SmsLogViewModel : ViewModel() {
     fun saveCallLogs(context: Context) {
 
         if (isRunning) {
-            _state.value = SMSLogScreenState(loading = true, error = "Already Process Running", logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+            _state.value = SMSLogScreenState(
+                loading = true,
+                error = "Already Process Running",
+                logBkpS = state.value.logBkpS,
+                smsBkpS = state.value.smsBkpS
+            )
         }
         isRunning = true
-        _state.value = SMSLogScreenState(loading = true, logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+        _state.value = SMSLogScreenState(
+            loading = true,
+            logBkpS = state.value.logBkpS,
+            smsBkpS = state.value.smsBkpS
+        )
 
         val obbPath = (context as ContextWrapper).obbDir.absolutePath
 
@@ -154,14 +180,22 @@ class SmsLogViewModel : ViewModel() {
                         }
                         br.append(']')
                     } catch (ioe: IOException) {
-                        _state.value = SMSLogScreenState(error = ioe.localizedMessage ?: "Error", logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+                        _state.value = SMSLogScreenState(
+                            error = ioe.localizedMessage ?: "Error",
+                            logBkpS = state.value.logBkpS,
+                            smsBkpS = state.value.smsBkpS
+                        )
                     } finally {
                         c.close()
                         br.close()
                     }
 
                     isRunning = false
-                    _state.value = SMSLogScreenState(message = "Saved at $obbPath", logBkpS = state.value.logBkpS, smsBkpS = state.value.smsBkpS)
+                    _state.value = SMSLogScreenState(
+                        message = "Saved at $obbPath",
+                        logBkpS = state.value.logBkpS,
+                        smsBkpS = state.value.smsBkpS
+                    )
                 }
             }
         }
@@ -193,6 +227,36 @@ class SmsLogViewModel : ViewModel() {
                 _state.value = state.value.copy(error = "Error saved getting Backups")
             }
             isScanning = false
+        }
+    }
+
+    @Volatile
+    private var deleting = false
+    fun deleteBkp(bkpFile: String, context: Context) {
+        if (deleting) return
+
+        runCatching {
+            viewModelScope.launch(Dispatchers.IO) {
+                val contextWrapper = context as ContextWrapper
+                val obbDir = contextWrapper.obbDir
+                val fileDir =
+                    File(
+                        obbDir, if (bkpFile.contains("SMS", ignoreCase = true))
+                            smsDirName else callLogDir
+                    )
+
+                val file = File(fileDir, bkpFile)
+                if (file.delete()) {
+                    _state.value = state.value.copy(message = "Deleted $bkpFile")
+
+                } else {
+                    _state.value = state.value.copy(error = "Can't Delete")
+                }
+
+                deleting = false
+            }
+        }.getOrElse {
+            _state.value = state.value.copy(error = "Error deleting file")
         }
     }
 

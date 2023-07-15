@@ -2,6 +2,7 @@ package com.brohit.smsbackup.ui.screen
 
 import android.Manifest
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.Intent.CATEGORY_DEFAULT
 import android.content.Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
@@ -10,16 +11,17 @@ import android.content.Intent.FLAG_ACTIVITY_NO_HISTORY
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,31 +29,52 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
+private const val TAG = "MainContent"
 
 @OptIn(
     ExperimentalLayoutApi::class, ExperimentalFoundationApi::class,
     ExperimentalMaterial3Api::class
 )
 @Composable
-fun MainContent(state: SMSLogScreenState, onBackUpSms: () -> Unit, onBackUpCall: () -> Unit) {
+fun MainContent(
+    modifier: Modifier = Modifier,
+    state: SMSLogScreenState,
+    onBackUpSms: () -> Unit,
+    onBackUpCall: () -> Unit,
+    onDeleteItemClick: (String) -> Unit = {},
+) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         contentAlignment = Alignment.Center
@@ -86,26 +109,13 @@ fun MainContent(state: SMSLogScreenState, onBackUpSms: () -> Unit, onBackUpCall:
 
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 16.dp)
             ) {
-                if (state.logBkpS.isNotEmpty()) {
-                    stickyHeader(key = "Saved Call logs") {
-                        Text(text = "Saved Call logs")
-                    }
-                }
-                items(state.logBkpS, key = { it }) { bkp ->
-                    ListItem(
-                        headlineText = { Text(text = bkp) },
-                        modifier = Modifier,
-                        colors = ListItemDefaults.colors(),
-                        shadowElevation = 5.dp,
-                        tonalElevation = 2.dp
-                    )
-                }
 
                 if (state.smsBkpS.isNotEmpty()) {
                     stickyHeader(key = "Saved SMS logs") {
-                        Text(text = "Saved SMS logs")
+                        ListItem(headlineText = { Text(text = "Saved SMS logs") })
                     }
                 }
                 items(state.smsBkpS, key = { it }) { bkp ->
@@ -114,13 +124,42 @@ fun MainContent(state: SMSLogScreenState, onBackUpSms: () -> Unit, onBackUpCall:
                         modifier = Modifier,
                         colors = ListItemDefaults.colors(),
                         shadowElevation = 5.dp,
-                        tonalElevation = 2.dp
+                        tonalElevation = 2.dp,
+                        trailingContent = {
+                            IconButton(onClick = { onDeleteItemClick(bkp) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Bkp Icon"
+                                )
+                            }
+                        }
+                    )
+                }
+                if (state.logBkpS.isNotEmpty()) {
+                    stickyHeader(key = "Saved Call logs") {
+                        ListItem(headlineText = { Text(text = "Saved Call logs") })
+                    }
+                }
+                items(state.logBkpS, key = { it }) { bkp ->
+                    ListItem(
+                        headlineText = { Text(text = bkp) },
+                        modifier = Modifier,
+                        colors = ListItemDefaults.colors(),
+                        shadowElevation = 5.dp,
+                        tonalElevation = 2.dp,
+                        trailingContent = {
+                            IconButton(onClick = { onDeleteItemClick(bkp) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Bkp Icon"
+                                )
+                            }
+                        }
                     )
                 }
 
 
             }
-
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
@@ -154,14 +193,89 @@ fun MainContent(state: SMSLogScreenState, onBackUpSms: () -> Unit, onBackUpCall:
                 }
             }
         }
-        Text(
-            text = state.error, color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.align(
-                Alignment.BottomCenter
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScaffoldContent(
+    state: SMSLogScreenState,
+    onBackUpSms: () -> Unit,
+    onBackUpCall: () -> Unit,
+    onDeleteItemClick: (String) -> Unit = {},
+    refreshList: () -> Unit = {}
+) {
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    var showInfo by remember {
+        mutableStateOf(false)
+    }
+    val context = LocalContext.current as ContextWrapper
+
+    if (showInfo) {
+        AlertDialog(
+            onDismissRequest = {
+                showInfo = false
+            },
+            icon = { Icon(Icons.Filled.Info, contentDescription = null) },
+            title = {
+                Text(text = "About App")
+            },
+            text = {
+                Text(
+                    "This application just backups sms and call logs into json format" +
+                            "it does not upload any backup data into server\n" +
+                            "SMS backup saved into Android/obb/${context.packageName}/${SmsLogViewModel.smsDirName}\n" +
+                            "Call Log backup saved into Android/obb/${context.packageName}/${SmsLogViewModel.callLogDir}"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showInfo = false
+                    }
+                ) {
+                    Text("Dismiss")
+                }
+            }
+        )
+    }
+
+
+    Scaffold(
+        topBar = {
+            MediumTopAppBar(
+                title = { Text(text = "Call & SMS Backup") },
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    IconButton(onClick = {
+                        showInfo = true
+                    }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Know about"
+                        )
+                    }
+                    IconButton(onClick = refreshList) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                }
             )
+        },
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+    ) { paddingValues ->
+        MainContent(
+            modifier = Modifier.padding(paddingValues),
+            state = state, onBackUpSms = onBackUpSms,
+            onBackUpCall = onBackUpCall,
+            onDeleteItemClick = onDeleteItemClick,
         )
     }
 }
+
 
 @Composable
 fun MainScreen(vm: SmsLogViewModel) {
@@ -169,11 +283,17 @@ fun MainScreen(vm: SmsLogViewModel) {
     val state = vm.state.collectAsState().value
     LaunchedEffect(key1 = state.message) {
         vm.getSavedBkpS(context)
+        Log.e(TAG, "MainScreen: ${state.error}")
+        Log.d(TAG, "MainScreen: ${state.message}")
     }
 
-    MainContent(state, onBackUpSms = { vm.saveAllSms(context) }, onBackUpCall = {
-        vm.saveCallLogs(context)
-    })
+    MainScaffoldContent(
+        state = state,
+        onBackUpSms = { vm.saveAllSms(context) },
+        onBackUpCall = { vm.saveCallLogs(context) },
+        onDeleteItemClick = { vm.deleteBkp(it, context) },
+        refreshList = { vm.getSavedBkpS(context) }
+    )
 }
 
 fun checkAndRequestLocationPermissions(
