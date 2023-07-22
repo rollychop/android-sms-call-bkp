@@ -11,7 +11,6 @@ import android.content.Intent.FLAG_ACTIVITY_NO_HISTORY
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
-import android.util.Log
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,7 +58,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 
-private const val TAG = "MainContent"
 
 @OptIn(
     ExperimentalLayoutApi::class, ExperimentalFoundationApi::class,
@@ -70,6 +68,7 @@ fun MainContent(
     modifier: Modifier = Modifier,
     state: SMSLogScreenState,
     onBackUpSms: () -> Unit,
+    onBackUpContact: () -> Unit,
     onBackUpCall: () -> Unit,
     onDeleteItemClick: (String) -> Unit = {},
 ) {
@@ -83,7 +82,8 @@ fun MainContent(
         val context = LocalContext.current
         val permissions = arrayOf(
             Manifest.permission.READ_CALL_LOG,
-            Manifest.permission.READ_SMS
+            Manifest.permission.READ_SMS,
+            Manifest.permission.READ_CONTACTS
         )
         val launcherMultiplePermissions = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
@@ -189,7 +189,21 @@ fun MainContent(
                     },
                     enabled = state.loading.not()
                 ) {
-                    Text(text = "Backup Call Logs")
+                    Text(text = "Backup CallLogs")
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Button(
+                    onClick = {
+                        checkAndRequestLocationPermissions(
+                            context,
+                            permissions,
+                            launcherMultiplePermissions,
+                            onBackUp = onBackUpContact
+                        )
+                    },
+                    enabled = state.loading.not()
+                ) {
+                    Text(text = "Backup Contact")
                 }
             }
         }
@@ -201,6 +215,7 @@ fun MainContent(
 fun MainScaffoldContent(
     state: SMSLogScreenState,
     onBackUpSms: () -> Unit,
+    onBackUpContact: () -> Unit,
     onBackUpCall: () -> Unit,
     onDeleteItemClick: (String) -> Unit = {},
     refreshList: () -> Unit = {}
@@ -271,6 +286,7 @@ fun MainScaffoldContent(
             modifier = Modifier.padding(paddingValues),
             state = state, onBackUpSms = onBackUpSms,
             onBackUpCall = onBackUpCall,
+            onBackUpContact = onBackUpContact,
             onDeleteItemClick = onDeleteItemClick,
         )
     }
@@ -283,13 +299,12 @@ fun MainScreen(vm: SmsLogViewModel) {
     val state = vm.state.collectAsState().value
     LaunchedEffect(key1 = state.message) {
         vm.getSavedBkpS(context)
-        Log.e(TAG, "MainScreen: ${state.error}")
-        Log.d(TAG, "MainScreen: ${state.message}")
     }
 
     MainScaffoldContent(
         state = state,
         onBackUpSms = { vm.saveAllSms(context) },
+        onBackUpContact = { vm.saveContact(context) },
         onBackUpCall = { vm.saveCallLogs(context) },
         onDeleteItemClick = { vm.deleteBkp(it, context) },
         refreshList = { vm.getSavedBkpS(context) }
